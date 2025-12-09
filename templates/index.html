@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MNIST Digit Classifier</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Google Font -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top left, #020617, #020617);
+      color: #f9fafb;
+      overflow: hidden;
+    }
+
+    /* Animated background */
+    .bg-gradient {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 0% 0%, #1d4ed8 0, transparent 55%),
+        radial-gradient(circle at 100% 0%, #ec4899 0, transparent 55%),
+        radial-gradient(circle at 0% 100%, #22c55e 0, transparent 55%),
+        radial-gradient(circle at 100% 100%, #3b82f6 0, transparent 55%);
+      opacity: 0.22;
+      filter: blur(42px);
+      pointer-events: none;
+      animation: flow 16s infinite alternate ease-in-out;
+    }
+
+    @keyframes flow {
+      0% {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      50% {
+        transform: translate3d(-10px, 10px, 0) scale(1.02);
+      }
+      100% {
+        transform: translate3d(10px, -10px, 0) scale(1.03);
+      }
+    }
+
+    .container {
+      position: relative;
+      width: 100%;
+      max-width: 980px;
+      padding: 24px;
+      z-index: 1;
+    }
+
+    .glass-card {
+      background: linear-gradient(
+        135deg,
+        rgba(15, 23, 42, 0.96),
+        rgba(15, 23, 42, 0.92)
+      );
+      border-radius: 28px;
+      padding: 26px 26px 30px;
+      box-shadow:
+        0 25px 55px rgba(15, 23, 42, 0.9),
+        0 0 0 1px rgba(148, 163, 184, 0.25);
+      backdrop-filter: blur(18px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-card::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      background: conic-gradient(
+        from 140deg,
+        rgba(96, 165, 250, 0.15),
+        rgba(244, 114, 182, 0.38),
+        rgba(52, 211, 153, 0.18),
+        rgba(96, 165, 250, 0.15)
+      );
+      opacity: 0.8;
+      mask: linear-gradient(black, transparent 45%);
+      pointer-events: none;
+    }
+
+    .glass-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 26px;
+      flex-wrap: wrap;
+    }
+
+    .title-block h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title-accent {
+      display: inline-flex;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 30% 20%, #f97316, #ec4899);
+      box-shadow:
+        0 0 0 1px rgba(248, 250, 252, 0.2),
+        0 0 20px rgba(236, 72, 153, 0.8);
+      font-size: 0.9rem;
+    }
+
+    .title-block p {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      margin-top: 4px;
+      max-width: 480px;
+    }
+
+    .pill-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-end;
+      min-width: 160px;
+    }
+
+    .badge-main {
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 0 0, #22c55e, #16a34a);
+      color: #ecfdf3;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      box-shadow: 0 0 22px rgba(34, 197, 94, 0.6);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-sub {
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      font-size: 0.7rem;
+      color: #e5e7eb;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.9);
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr);
+      gap: 22px;
+    }
+
+    @media (max-width: 840px) {
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Upload panel */
+    .upload-card {
+      border-radius: 20px;
+      padding: 18px 18px 20px;
+      background: radial-gradient(
+          circle at top left,
+          rgba(59, 130, 246, 0.18),
+          transparent 55%
+        ),
+        rgba(15, 23, 42, 0.96);
+      border: 1px solid rgba(75, 85, 99, 0.9);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-card h2 {
+      font-size: 1.02rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .upload-card p {
+      font-size: 0.82rem;
+      color: #9ca3af;
+      margin-bottom: 12px;
+    }
+
+    .tag-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .mini-tag {
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      font-size: 0.7rem;
+      color: #e5e7eb;
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .drop-area {
+      margin-top: 6px;
+      border-radius: 18px;
+      border: 1px dashed rgba(156, 163, 175, 0.85);
+      padding: 18px 14px;
+      text-align: center;
+      background: radial-gradient(
+        circle at top,
+        rgba(56, 189, 248, 0.12),
+        rgba(15, 23, 42, 0.98)
+      );
+      cursor: pointer;
+      transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        transform 0.08s ease,
+        box-shadow 0.2s ease;
+      position: relative;
+    }
+
+    .drop-area::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      border: 1px solid transparent;
+      background: linear-gradient(
+          120deg,
+          rgba(96, 165, 250, 0.35),
+          rgba(236, 72, 153, 0.6),
+          rgba(56, 189, 248, 0.3)
+        )
+        border-box;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      mask: linear-gradient(#000 0 0) padding-box,
+        linear-gradient(#000 0 0);
+      mask-composite: exclude;
+    }
+
+    .drop-area:hover {
+      border-color: #60a5fa;
+      background: radial-gradient(
+        circle at top,
+        rgba(56, 189, 248, 0.18),
+        rgba(15, 23, 42, 0.98)
+      );
+      transform: translateY(-1px);
+      box-shadow: 0 14px 26px rgba(15, 23, 42, 0.9);
+    }
+
+    .drop-area.dragover {
+      border-color: #a5b4fc;
+      box-shadow: 0 18px 34px rgba(30, 64, 175, 0.9);
+    }
+
+    .drop-area.dragover::after {
+      opacity: 1;
+    }
+
+    .drop-main-text {
+      display: block;
+      font-size: 0.86rem;
+      color: #e5e7eb;
+      margin-bottom: 3px;
+    }
+
+    .drop-sub-text {
+      font-size: 0.74rem;
+      color: #9ca3af;
+    }
+
+    .file-name {
+      margin-top: 8px;
+      font-size: 0.74rem;
+      color: #cbd5f5;
+      text-align: left;
+      padding-left: 2px;
+      opacity: 0.9;
+      word-break: break-all;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .btn {
+      margin-top: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(135deg, #4f46e5, #ec4899);
+      color: #f9fafb;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      box-shadow:
+        0 14px 32px rgba(79, 70, 229, 0.7),
+        0 0 0 1px rgba(248, 250, 252, 0.08);
+      transition:
+        transform 0.08s ease,
+        box-shadow 0.08s ease,
+        filter 0.08s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow:
+        0 18px 40px rgba(79, 70, 229, 0.9),
+        0 0 0 1px rgba(248, 250, 252, 0.2);
+      filter: brightness(1.07);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      box-shadow:
+        0 10px 26px rgba(79, 70, 229, 0.7),
+        0 0 0 1px rgba(248, 250, 252, 0.12);
+    }
+
+    .btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .helper-text {
+      font-size: 0.7rem;
+      color: #9ca3af;
+      margin-top: 8px;
+    }
+
+    .error {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(248, 113, 113, 0.7);
+      color: #fecaca;
+      font-size: 0.78rem;
+    }
+
+    /* Preview & result panel */
+    .preview-card {
+      border-radius: 20px;
+      padding: 18px 18px 20px;
+      background: radial-gradient(
+          circle at top right,
+          rgba(236, 72, 153, 0.18),
+          transparent 55%
+        ),
+        rgba(15, 23, 42, 0.98);
+      border: 1px solid rgba(75, 85, 99, 0.9);
+    }
+
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .preview-header span:first-child {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .status-pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+    }
+
+    .status-ready {
+      background: rgba(22, 163, 74, 0.12);
+      color: #a7f3d0;
+      border: 1px solid rgba(52, 211, 153, 0.7);
+    }
+
+    .status-idle {
+      background: rgba(55, 65, 81, 0.9);
+      color: #e5e7eb;
+      border: 1px solid rgba(75, 85, 99, 0.9);
+    }
+
+    .preview-wrapper {
+      border-radius: 18px;
+      padding: 14px 14px 16px;
+      background: radial-gradient(circle at center, #020617, #020617);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+    }
+
+    @media (max-width: 540px) {
+      .preview-wrapper {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .preview-image {
+      width: 140px;
+      height: 140px;
+      border-radius: 16px;
+      border: 1px solid rgba(75, 85, 99, 0.9);
+      background: radial-gradient(circle at top, #020617, #020617);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .preview-image::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: radial-gradient(
+        circle at 0 0,
+        rgba(148, 163, 184, 0.14),
+        transparent 60%
+      );
+      mix-blend-mode: screen;
+    }
+
+    .preview-image img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      filter: grayscale(1) contrast(1.5);
+    }
+
+    .placeholder {
+      font-size: 0.75rem;
+      color: #6b7280;
+      padding: 0 10px;
+      text-align: center;
+    }
+
+    .result-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .pred-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 30% 15%, #a855f7, #1d4ed8);
+      box-shadow:
+        0 0 0 1px rgba(248, 250, 252, 0.16),
+        0 0 30px rgba(129, 140, 248, 0.9);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #e5e7eb;
+    }
+
+    .result-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .result-label {
+      font-size: 0.85rem;
+      color: #9ca3af;
+    }
+
+    .confidence-pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(15, 118, 110, 0.4);
+      border: 1px solid rgba(45, 212, 191, 0.7);
+      font-size: 0.75rem;
+      color: #a5f3fc;
+    }
+
+    .tip-box {
+      font-size: 0.72rem;
+      color: #9ca3af;
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+    }
+
+    .meta-text {
+      font-size: 0.7rem;
+      color: #6b7280;
+      margin-top: 10px;
+      text-align: right;
+    }
+
+    .meta-text span {
+      color: #a5b4fc;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-gradient"></div>
+
+  <div class="container">
+    <div class="glass-card">
+      <div class="glass-inner">
+        <div class="header">
+          <div class="title-block">
+            <h1>
+              <span class="title-accent">0–9</span>
+              MNIST Digit Classifier
+            </h1>
+            <p>
+              Upload a handwritten digit image and let your trained CNN model
+              instantly predict the number with confidence.
+            </p>
+          </div>
+          <div class="pill-stack">
+            <div class="badge-main">
+              <span class="badge-dot"></span>
+              Live Inference
+            </div>
+            <div class="badge-sub">
+              <span>TensorFlow · Flask · CV</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="content-grid">
+          <!-- Upload Panel -->
+          <div class="upload-card">
+            <h2>Upload Your Digit</h2>
+            <p>
+              Choose a clear image containing a single digit (0–9). The image
+              will be resized to <strong>28 × 28</strong> and converted to
+              grayscale before prediction.
+            </p>
+
+            <div class="tag-row">
+              <span class="mini-tag">PNG / JPG / JPEG / BMP / JFIF</span>
+              <span class="mini-tag">Best with centered digits</span>
+              <span class="mini-tag">High contrast recommended</span>
+            </div>
+
+            <form
+              id="upload-form"
+              method="POST"
+              enctype="multipart/form-data"
+              novalidate
+            >
+              <label for="file-input">
+                <div class="drop-area" id="drop-area">
+                  <span class="drop-main-text">
+                    Click to browse or drop an image here
+                  </span>
+                  <span class="drop-sub-text">
+                    Your image stays on this machine when running locally.
+                  </span>
+                </div>
+              </label>
+
+              <input
+                id="file-input"
+                type="file"
+                name="file"
+                accept="image/*"
+                required
+              />
+
+              <div class="file-name" id="file-name">
+                No file selected yet.
+              </div>
+
+              <button class="btn" type="submit">
+                <svg viewBox="0 0 20 20" fill="none">
+                  <path
+                    d="M10 3L6 7h3v4h2V7h3L10 3z"
+                    fill="currentColor"
+                  ></path>
+                  <path
+                    d="M4 13a2 2 0 012-2h1v2H6v2h8v-2h-1v-2h1a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z"
+                    fill="currentColor"
+                  ></path>
+                </svg>
+                Predict Digit
+              </button>
+
+              <div class="helper-text">
+                Tip: Digits similar to MNIST style (white digit, dark background)
+                usually give the most accurate results.
+              </div>
+
+              {% if error %}
+              <div class="error">
+                {{ error }}
+              </div>
+              {% endif %}
+            </form>
+          </div>
+
+          <!-- Preview & Result Panel -->
+          <div class="preview-card">
+            <div class="preview-header">
+              <span>Model Output</span>
+              {% if prediction is not none %}
+              <span class="status-pill status-ready">Prediction ready</span>
+              {% else %}
+              <span class="status-pill status-idle">Awaiting input</span>
+              {% endif %}
+            </div>
+
+            <div class="preview-wrapper">
+              <div class="preview-image" id="preview-box">
+                {% if image_url %}
+                <img
+                  src="{{ image_url }}"
+                  alt="Uploaded Digit"
+                  id="preview-image-tag"
+                />
+                {% else %}
+                <span class="placeholder" id="preview-placeholder">
+                  Your image preview will appear here after selection.
+                </span>
+                {% endif %}
+              </div>
+
+              <div class="result-block">
+                {% if prediction is not none %}
+                <div class="result-row">
+                  <div class="pred-circle">
+                    {{ prediction }}
+                  </div>
+                  <div>
+                    <div class="result-label">
+                      Predicted digit from the model
+                    </div>
+                    {% if confidence %}
+                    <div class="confidence-pill">
+                      Confidence: <strong>{{ confidence }}%</strong>
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="tip-box">
+                  This prediction comes from your trained CNN on MNIST. If the
+                  result looks off, try using a more MNIST-like handwritten
+                  digit with good contrast.
+                </div>
+                {% else %}
+                <div class="result-row">
+                  <div class="pred-circle" style="opacity: 0.35;">?</div>
+                  <div>
+                    <div class="result-label">
+                      Once you upload an image and submit, the predicted digit
+                      and confidence will appear here.
+                    </div>
+                  </div>
+                </div>
+                <div class="tip-box">
+                  Start by uploading a single digit on a dark or plain
+                  background. The model is optimized for handwritten digits,
+                  but you can experiment with printed ones too.
+                </div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="meta-text">
+              Trained on <span>MNIST</span> · Inference by
+              <span>TensorFlow</span> · Served with <span>Flask</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("file-input");
+    const previewBox = document.getElementById("preview-box");
+    const dropArea = document.getElementById("drop-area");
+    const fileNameLabel = document.getElementById("file-name");
+
+    function showPreview(file) {
+      if (!file) return;
+
+      const existingPlaceholder = document.getElementById("preview-placeholder");
+      if (existingPlaceholder) {
+        existingPlaceholder.remove();
+      }
+
+      let imgTag = document.getElementById("preview-image-tag");
+      if (!imgTag) {
+        imgTag = document.createElement("img");
+        imgTag.id = "preview-image-tag";
+        previewBox.appendChild(imgTag);
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imgTag.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    dropArea.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropArea.classList.add("dragover");
+    });
+
+    dropArea.addEventListener("dragleave", () => {
+      dropArea.classList.remove("dragover");
+    });
+
+    dropArea.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropArea.classList.remove("dragover");
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        fileNameLabel.textContent = file.name;
+        showPreview(file);
+      }
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        fileNameLabel.textContent = file.name;
+        showPreview(file);
+      } else {
+        fileNameLabel.textContent = "No file selected yet.";
+      }
+    });
+  </script>
+</body>
+</html>
